@@ -10,6 +10,7 @@
 namespace PHPCI\Helper;
 
 use Exception;
+use PHPCI\Command\Alterations\AlterCommandInterface;
 use PHPCI\Logging\BuildLogger;
 use Psr\Log\LogLevel;
 
@@ -67,6 +68,31 @@ abstract class BaseCommandExecutor implements CommandExecutor
     }
 
     /**
+     * Alters Any Given Commands As Needed.
+     *
+     * @returns array Altered Command Data
+     */
+    public function alterCommand($args = array())
+    {
+        $primaryCommand = explode(' ', $args[0], 2)[0];
+        $primaryCommand = explode('/', $primaryCommand);
+
+        $alterClass = '\PHPCI\Command\Alterations\\' . $primaryCommand;
+        if (class_exists($alterClass)) {
+            /** @var AlterCommandInterface $alterCommand */
+            $alterCommand = new $alterClass($args);
+            if (!$alterClass instanceof AlterCommandInterface) {
+                throw new \LogicException("Invalid Alter Command Class: " . $alterClass);
+            }
+
+            $args = $alterCommand->runAlteration()
+                ->getArguments();
+        }
+
+        return $args;
+    }
+
+    /**
      * Executes shell commands.
      * @param array $args
      * @return bool Indicates success
@@ -74,6 +100,8 @@ abstract class BaseCommandExecutor implements CommandExecutor
     public function executeCommand($args = array())
     {
         $this->lastOutput = array();
+
+        $args = $this->alterCommand($args);
 
         $command = call_user_func_array('sprintf', $args);
         $this->logger->logDebug($command);
