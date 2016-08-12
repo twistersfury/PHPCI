@@ -8,29 +8,30 @@
     namespace Tests\PHPCI\Plugin;
 
     class AbstractPluginTest extends  \PHPUnit_Framework_TestCase {
-        public function testGetOption() {
+
+        /** @var \PHPCI\Plugin\AbstractPlugin|\PHPUnit_Framework_MockObject_MockBuilder $testPlugin */
+        private $testPlugin = NULL;
+
+        public function setUp() {
             $mockBuilder = $this->getMockBuilder('\PHPCI\Builder')
-                ->disableOriginalConstructor()
-                ->getMock();
+                                ->disableOriginalConstructor()
+                                ->getMock();
 
             $mockBuild = $this->getMockBuilder('\PHPCI\Model\Build')
-                ->disableOriginalConstructor()
-                ->getMock();
+                              ->disableOriginalConstructor()
+                              ->getMock();
 
-            /** @var \PHPCI\Plugin\AbstractPlugin | \PHPUnit_Framework_MockObject_MockBuilder $testPlugin */
-            $testPlugin = $this->getMockBuilder('\PHPCI\Plugin\AbstractPlugin')
-                ->setConstructorArgs(
-                    [
-                        $mockBuilder,
-                        $mockBuild,
-                        [
-                            'some_option' => 'exists'
-                        ]
-                    ]
-                )
-                ->getMockForAbstractClass();
+            $this->testPlugin = $this->getMockBuilder('\PHPCI\Plugin\AbstractPlugin')
+                               ->disableOriginalConstructor()
+                               ->getMockForAbstractClass();
 
-            $this->assertEquals('exists', $testPlugin->getOption('some_option', 'does not exist'));
-            $this->assertEquals('does not exist', $testPlugin->getOption('another_option', 'does not exist'));
+            $this->assertSame($this->testPlugin, $this->testPlugin->setModel($mockBuild));
+            $this->assertSame($this->testPlugin, $this->testPlugin->setBuilder($mockBuilder));
+            $this->assertSame($this->testPlugin, $this->testPlugin->setOptions(['some_option' => 'exists']));
+        }
+
+        public function testGetOption() {
+            $this->assertEquals('exists'        , $this->testPlugin->getOption('some_option', 'does not exist'));
+            $this->assertEquals('does not exist', $this->testPlugin->getOption('another_option', 'does not exist'));
         }
     }
