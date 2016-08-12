@@ -10,7 +10,34 @@
     use PHPCI\Plugin\PhpSelector;
 
     class PhpSelectorTest extends \PHPUnit_Framework_TestCase {
-        public function testBackupOriginal() {
+        public function testBackupOriginalSet() {
+            /** @var \PHPCI\Plugin\PhpSelector|\PHPUnit_Framework_MockObject_MockObject $testPlugin */
+            $testPlugin = $this->getMockBuilder('\PHPCI\Plugin\PhpSelector')
+                               ->disableOriginalConstructor()
+                               ->setMethods(['getEnv', 'backupIni', 'backupPath'])
+                               ->getMock();
+
+
+            $testPlugin->expects($this->exactly(4))
+                       ->method('getEnv')
+                       ->withConsecutive(
+                           [PhpSelector::C_INI_DIRECTORY],
+                           [PhpSelector::C_PATH]
+                       )->willReturnOnConsecutiveCalls(
+                            'Something',
+                            'Else'
+                       );
+
+            $testPlugin->expects($this->never())
+                       ->method('backupIni');
+
+            $testPlugin->expects($this->never())
+                       ->method('backupPath');
+
+            $this->assertSame($testPlugin, $testPlugin->backupOriginals());
+        }
+
+        public function testBackupOriginalNotSet() {
             /** @var \PHPCI\Plugin\PhpSelector|\PHPUnit_Framework_MockObject_MockObject $testPlugin */
             $testPlugin = $this->getMockBuilder('\PHPCI\Plugin\PhpSelector')
                 ->disableOriginalConstructor()
@@ -22,14 +49,10 @@
                 ->method('getEnv')
                 ->withConsecutive(
                     [PhpSelector::C_INI_DIRECTORY],
-                    [PhpSelector::C_PATH],
-                    [PhpSelector::C_INI_DIRECTORY],
                     [PhpSelector::C_PATH]
                 )->willReturnOnConsecutiveCalls(
                     NULL,
-                    NULL,
-                    'Something',
-                    'Else'
+                    NULL
                 );
 
             $testPlugin->expects($this->once())
@@ -40,7 +63,6 @@
                 ->method('backupPath')
                 ->willReturnSelf();
 
-            $this->assertSame($testPlugin, $testPlugin->backupOriginals());
             $this->assertSame($testPlugin, $testPlugin->backupOriginals());
         }
 
