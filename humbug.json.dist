@@ -1,0 +1,11 @@
+{
+    "source": {
+        "directories": [
+            "PHPCI"
+        ]
+    },
+    "timeout": 10,
+    "logs": {
+        "text": "humbuglog.txt"
+    }
+}

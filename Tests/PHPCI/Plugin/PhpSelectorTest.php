@@ -18,7 +18,7 @@
                                ->getMock();
 
 
-            $testPlugin->expects($this->exactly(4))
+            $testPlugin->expects($this->exactly(2))
                        ->method('getEnv')
                        ->withConsecutive(
                            [PhpSelector::C_INI_DIRECTORY],
@@ -45,7 +45,7 @@
                 ->getMock();
 
 
-            $testPlugin->expects($this->exactly(4))
+            $testPlugin->expects($this->exactly(2))
                 ->method('getEnv')
                 ->withConsecutive(
                     [PhpSelector::C_INI_DIRECTORY],
