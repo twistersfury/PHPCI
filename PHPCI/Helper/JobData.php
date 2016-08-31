@@ -8,6 +8,8 @@
 
     namespace PHPCI\Helper;
 
+    use PHPCI\Exceptions\InvalidJobData;
+
     class JobData
     {
 
@@ -20,7 +22,7 @@
         public function __construct(array $jobData)
         {
             if (!$this->verifyJob($jobData)) {
-                throw new \InvalidArgumentException('Not Valid Job Information');
+                throw new InvalidJobData('Not Valid Job Information');
             }
 
             $this->setJobData($jobData);
