@@ -10,6 +10,7 @@
 namespace PHPCI;
 
 use b8\Store\Factory;
+use PHPCI\Exceptions\MissingBuild;
 use PHPCI\Model\Build;
 
 /**
@@ -28,7 +29,7 @@ class BuildFactory
         $build = Factory::getStore('Build')->getById($buildId);
 
         if (empty($build)) {
-            throw new \Exception('Build ID ' . $buildId . ' does not exist.');
+            throw new MissingBuild('Build ID ' . $buildId . ' does not exist.');
         }
 
         return self::getBuild($build);
