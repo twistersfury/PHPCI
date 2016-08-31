@@ -17,8 +17,12 @@
          */
         protected $jobData = [];
 
-        public function __construct($jobData)
+        public function __construct(array $jobData)
         {
+            if (!$this->verifyJob($jobData)) {
+                throw new \InvalidArgumentException('Not Valid Job Information');
+            }
+
             $this->setJobData($jobData);
         }
 
@@ -39,7 +43,7 @@
 
         public function getProperty($propertyName)
         {
-            if (!array_key_exists($this->jobData, $propertyName) || empty($this->jobData[$propertyName])) {
+            if (!array_key_exists($this->jobData, $propertyName)) {
                 throw new \InvalidArgumentException('Property Not Defined: ' . $propertyName);
             }
 
@@ -54,5 +58,14 @@
         public function getConfig()
         {
             return $this->getProperty('config');
+        }
+
+        /**
+         * Checks that the job received is actually from PHPCI, and has a valid type.
+         * @return bool
+         */
+        public function verifyJob($jobData)
+        {
+            return array_key_exists('type', $jobData) && $jobData['type'] !== 'phpci.build';
         }
     }
