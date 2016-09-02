@@ -45,7 +45,7 @@
 
         public function getProperty($propertyName)
         {
-            if (!array_key_exists($this->jobData, $propertyName)) {
+            if (!array_key_exists($propertyName, $this->jobData)) {
                 throw new \InvalidArgumentException('Property Not Defined: ' . $propertyName);
             }
 
@@ -68,6 +68,6 @@
          */
         public function verifyJob($jobData)
         {
-            return array_key_exists('type', $jobData) && $jobData['type'] !== 'phpci.build';
+            return array_key_exists('type', $jobData) && $jobData['type'] === 'phpci.build';
         }
     }
