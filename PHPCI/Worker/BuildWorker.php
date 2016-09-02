@@ -97,10 +97,7 @@ class BuildWorker
             $this->checkJobLimit();
 
             try {
-                $jobData = new JobData(json_decode($job->getData(), TRUE));
-
-                $childWorker = new ChildBuildWorker($jobData, $this);
-                $childWorker->setLogger($this->logger)->startWorker();
+                $this->runLocal($job);
             } catch (\PDOException $ex) {
                 // If we've caught a PDO Exception, it is probably not the fault of the build, but of a failed
                 // connection or similar. Release the job and kill the worker.
@@ -115,6 +112,21 @@ class BuildWorker
             // Delete the job when we're done:
             $this->pheanstalk->delete($job);
         }
+    }
+
+    /**
+     * @param $job
+     *
+     * @return $this
+     */
+    public function runLocal(Job $job)
+    {
+        $jobData = new JobData(json_decode($job->getData(), TRUE));
+
+        $childWorker = new ChildBuildWorker($jobData, $this);
+        $childWorker->setLogger($this->logger)->startWorker();
+
+        return $this;
     }
 
     /**
