@@ -7,7 +7,6 @@ use b8\Database;
 use b8\Store\Factory;
 use Monolog\Logger;
 use PHPCI\Builder;
-use PHPCI\BuildFactory;
 use PHPCI\Helper\JobData;
 use PHPCI\Logging\BuildDBLogHandler;
 use PHPCI\Model\Build;
@@ -30,19 +29,13 @@ class ChildBuildWorker
     protected $jobData = NULL;
 
     /**
-     * Parent Build Worker (InLine Only)
-     * @var BuildWorker
+     * Constructor
+     *
+     * @param JobData $jobData
      */
-    protected $buildWorker = NULL;
-
-    /**
-     * @param $host
-     * @param $queue
-     */
-    public function __construct(JobData $jobData, BuildWorker $buildWorker = NULL)
+    public function __construct(JobData $jobData)
     {
         $this->jobData     = $jobData;
-        $this->buildWorker = $buildWorker;
     }
 
     /**
@@ -55,15 +48,8 @@ class ChildBuildWorker
     }
 
     /**
-     * @return \PHPCI\Worker\BuildWorker
-     */
-    public function getBuildWorker()
-    {
-        return $this->buildWorker;
-    }
-
-    /**
      * @param Logger $logger
+     * @return $this
      */
     public function setLogger(Logger $logger)
     {
@@ -76,29 +62,27 @@ class ChildBuildWorker
      */
     public function startWorker()
     {
-        $this->logger->addInfo('Received build #' . $this->getJobData()->getBuildId() . ' from Beanstalkd');
-
-        $buildStore = Factory::getStore('Build');
+        $currentConfig = NULL;
+        $this->logger->addInfo('Received build #' . $this->getJobData()->getBuildId());
 
         // If the job comes with config data, reset our config and database connections
         // and then make sure we kill the worker afterwards:
         if ($this->getJobData()->getConfig()) {
             $this->logger->addDebug('Using job-specific config.');
-            $currentConfig = Config::getInstance()->getArray();
-            $config = new Config($this->getJobData()->getConfig());
-            Database::reset($config);
+            $currentConfig = $this->loadCurrentConfig();
+            $this->resetDatabase($this->getJobData()->getConfig());
         }
 
-        $build = BuildFactory::getBuildById($this->getJobData()->getBuildId());
+        $build = $this->getJobData()->getBuild(); //Letting Parent Handle Any Errors
 
         try {
             // Logging relevant to this build should be stored
             // against the build itself.
-            $buildDbLog = new BuildDBLogHandler($build, Logger::INFO);
+            $buildDbLog = $this->loadBuildLogger($build);
+
             $this->logger->pushHandler($buildDbLog);
 
-            $builder = new Builder($build, $this->logger);
-            $builder->execute();
+            $this->loadBuilder($build)->execute();
 
             // After execution we no longer want to record the information
             // back to this specific build so the handler should be removed.
@@ -107,14 +91,36 @@ class ChildBuildWorker
             $build->setStatus(Build::STATUS_FAILED);
             $build->setFinished(new \DateTime());
             $build->setLog($build->getLog() . PHP_EOL . PHP_EOL . $ex->getMessage());
-            $buildStore->save($build);
+            $this->loadBuildStore()->save($build);
             $build->sendStatusPostback();
         }
 
         // Reset the config back to how it was prior to running this job:
         if (!empty($currentConfig)) {
-            $config = new Config($currentConfig);
-            Database::reset($config);
+            $this->resetDatabase($currentConfig);
         }
+    }
+
+    protected function loadBuildLogger(Build $buildData) {
+        return new BuildDBLogHandler($buildData, Logger::INFO);
+    }
+
+    protected function loadBuilder(Build $buildData) {
+        return new Builder($buildData, $this->logger);
+    }
+
+    protected function resetDatabase(array $configData) {
+        $config = new Config($configData);
+        Database::reset($config);
+
+        return $this;
+    }
+
+    protected function loadCurrentConfig() {
+        return Config::getInstance()->getArray();
+    }
+
+    protected function loadBuildStore() {
+        return Factory::getStore('Build');
     }
 }
