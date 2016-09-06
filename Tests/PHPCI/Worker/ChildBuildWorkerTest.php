@@ -40,8 +40,11 @@
 
             $this->mockBuild = $this->getMockBuilder('\PHPCI\Model\Build')
                 ->disableOriginalConstructor()
-                ->setMethods(['setStatus', 'setLog'])
+                ->setMethods(['setStatus', 'setLog', 'getStatus'])
                 ->getMock();
+
+            $this->mockBuild->method('getStatus')
+                  ->willReturn(Build::STATUS_NEW);
 
             $this->mockJobData = $this->getMockBuilder('\PHPCI\Helper\JobData')
                 ->disableOriginalConstructor()
