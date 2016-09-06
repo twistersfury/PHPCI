@@ -12,6 +12,7 @@ define('PHPCI_IS_CONSOLE', true);
 
 require('bootstrap.php');
 
+use PHPCI\Command\BuildCommand;
 use PHPCI\Command\RunCommand;
 use PHPCI\Command\RebuildCommand;
 use PHPCI\Command\GenerateCommand;
@@ -40,5 +41,6 @@ $application->add(new CreateAdminCommand(Factory::getStore('User')));
 $application->add(new CreateBuildCommand(Factory::getStore('Project'), new BuildService(Factory::getStore('Build'))));
 $application->add(new WorkerCommand($loggerConfig->getFor('WorkerCommand')));
 $application->add(new RebuildQueueCommand($loggerConfig->getFor('RebuildQueueCommand')));
+$application->add(new BuildCommand($loggerConfig->getFor('BuildCommand')));
 
 $application->run();

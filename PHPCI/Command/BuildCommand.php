@@ -14,6 +14,7 @@
     use PHPCI\Logging\OutputLogHandler;
     use PHPCI\Worker\ChildBuildWorker;
     use Symfony\Component\Console\Command\Command;
+    use Symfony\Component\Console\Input\InputArgument;
     use Symfony\Component\Console\Input\InputInterface;
     use Symfony\Component\Console\Input\InputOption;
     use Symfony\Component\Console\Output\OutputInterface;
@@ -57,7 +58,7 @@
             $this
                 ->setName('phpci:build')
                 ->setDescription('Runs the PHPCI child build worker.')
-                ->addArgument('buildId', NULL, InputOption::VALUE_REQUIRED, 'Build ID To Run')
+                ->addArgument('buildId', InputArgument::REQUIRED, 'Build ID To Run')
                 ->addOption('debug', null, null, 'Run PHPCI in Debug Mode')
                 ->addOption('buildConfig', 'c', InputOption::VALUE_OPTIONAL, 'JSON Build Configuration to Run.');
         }
@@ -114,7 +115,7 @@
 
         protected function parseConfig()
         {
-            if (!$this->inputInterface->hasOption('buildConfig')) {
+            if (!$this->inputInterface->getOption('buildConfig')) {
                 return [];
             }
 
