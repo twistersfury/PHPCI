@@ -74,7 +74,7 @@ class ChildBuildWorker
         }
 
         $build = $this->getJobData()->getBuild(); //Letting Parent Handle Any Errors
-        if ($build->getStatus() !== Build::STATUS_NEW) {
+        if ($build->getStatus() != Build::STATUS_NEW) {
             throw new \RuntimeException('Build Has Already Been Ran: ' . $build->getId());
         }
 
