@@ -37,6 +37,8 @@ abstract class BaseCommandExecutor implements CommandExecutor
     protected $lastOutput;
     protected $lastError;
 
+    private $returnStatus = FALSE;
+
     public $logExecOutput = true;
 
     /**
@@ -116,10 +118,13 @@ abstract class BaseCommandExecutor implements CommandExecutor
             $this->logger->log("\033[0;31m" . $this->lastError . "\033[0m", LogLevel::ERROR);
         }
 
-        $rtn = false;
+        $rtn = $status;
+        if (!$this->canReturnStatus()) {
+            $rtn = FALSE;
 
-        if ($status == 0) {
-            $rtn = true;
+            if ($status == 0) {
+                $rtn = TRUE;
+            }
         }
 
         return $rtn;
@@ -223,5 +228,16 @@ abstract class BaseCommandExecutor implements CommandExecutor
     public function setBuildPath($path)
     {
         $this->buildPath = $path;
+    }
+
+    public function canReturnStatus()
+    {
+        return $this->returnStatus;
+    }
+
+    public function setReturnStatus($canReturn) {
+        $this->returnStatus = $canReturn;
+
+        return $this;
     }
 }
