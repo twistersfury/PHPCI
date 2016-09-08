@@ -135,4 +135,8 @@
         {
             return BuildFactory::getBuildById($this->getBuildId());
         }
+
+        public function toArray() {
+            return $this->jobData;
+        }
     }

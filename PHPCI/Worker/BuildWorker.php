@@ -5,7 +5,10 @@ namespace PHPCI\Worker;
 use Monolog\Logger;
 use Pheanstalk\Job;
 use Pheanstalk\Pheanstalk;
+use PHPCI\Helper\CommandExecutor;
 use PHPCI\Helper\JobData;
+use PHPCI\Logging\BuildLogger;
+use PHPCI\Model\Build;
 
 /**
  * Class BuildWorker
@@ -54,6 +57,9 @@ class BuildWorker
      */
     protected $totalJobs = 0;
 
+    /** @var \PHPCI\Helper\CommandExecutor */
+    private $commandExecutor = NULL;
+
     /**
      * @param $host
      * @param $queue
@@ -97,7 +103,11 @@ class BuildWorker
             $this->checkJobLimit();
 
             try {
-                $this->runLocal($job);
+                $runMethod = 'Local';
+                if ($this->canRunChild($job)) {
+                    $runMethod = 'Child';
+                }
+                $this->{'run' . $runMethod}($job);
             } catch (\PDOException $ex) {
                 // If we've caught a PDO Exception, it is probably not the fault of the build, but of a failed
                 // connection or similar. Release the job and kill the worker.
@@ -114,6 +124,53 @@ class BuildWorker
         }
     }
 
+    public function canRunChild(Job $job)
+    {
+        //TODO: Implement Run Child
+        return TRUE;
+    }
+
+    public function runChild(Job $job)
+    {
+        $jobData = $this->loadJobData($job);
+
+        $this->logger->addInfo('Starting Child Build');
+
+        /** @noinspection PhpMethodParametersCountMismatchInspection */
+        $this->getCommandExecutor($jobData->getBuild())->executeCommand(
+            [
+                APPLICATION_PATH . 'console phpci:build --buildConfig="%s" %d',
+                addslashes(\json_encode($jobData->toArray())),
+                $jobData->getBuildId()
+            ]
+        );
+
+        $this->logger->addInfo('Child Build Complete');
+    }
+
+    public function getCommandExecutor(Build $buildData)
+    {
+        if ($this->commandExecutor === NULL) {
+            $className = 'UnixCommandExecutor';
+            if (IS_WIN) {
+                $className = 'WindowsCommandExecutor';
+            }
+
+            $className = '\PHPCI\Helper\\' . $className;
+
+            $this->setCommandExecutor(new $className(new BuildLogger($this->logger, $buildData), APPLICATION_PATH));
+        }
+
+        return $this->commandExecutor;
+    }
+
+    public function setCommandExecutor(CommandExecutor $command)
+    {
+        $this->commandExecutor = $command;
+
+        return $this;
+    }
+
     /**
      * @param $job
      *
@@ -121,12 +178,16 @@ class BuildWorker
      */
     public function runLocal(Job $job)
     {
-        $jobData = new JobData(json_decode($job->getData(), TRUE));
+        $jobData = $this->loadJobData($job);
 
         $childWorker = new ChildBuildWorker($jobData, $this);
         $childWorker->setLogger($this->logger)->startWorker();
 
         return $this;
+    }
+
+    protected function loadJobData(Job $job) {
+        return new JobData(json_decode($job->getData(), TRUE));
     }
 
     /**
