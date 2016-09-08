@@ -7,6 +7,7 @@ use b8\Database;
 use b8\Store\Factory;
 use Monolog\Logger;
 use PHPCI\Builder;
+use PHPCI\Exceptions\BuildAlreadyRan;
 use PHPCI\Helper\JobData;
 use PHPCI\Logging\BuildDBLogHandler;
 use PHPCI\Model\Build;
@@ -75,7 +76,7 @@ class ChildBuildWorker
 
         $build = $this->getJobData()->getBuild(); //Letting Parent Handle Any Errors
         if ($build->getStatus() != Build::STATUS_NEW) {
-            throw new \RuntimeException('Build Has Already Been Ran: ' . $build->getId());
+            throw new BuildAlreadyRan('Build Has Already Been Ran: ' . $build->getId());
         }
 
         try {

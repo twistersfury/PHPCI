@@ -30,6 +30,8 @@ class Build extends BuildBase
 
     public $currentBuildPath;
 
+    protected $buildConfig = NULL;
+
     /**
     * Get link to commit from another source (i.e. Github)
     */
@@ -97,6 +99,20 @@ class Build extends BuildBase
      */
     protected function handleConfig(Builder $builder, $buildPath)
     {
+        $build_config = $this->getConfig($buildPath);
+
+        // Fall back to zero config plugins:
+        if (empty($build_config)) {
+            $build_config = $this->getZeroConfigPlugins($builder);
+        }
+
+        $builder->setConfigArray($build_config);
+
+        return true;
+    }
+
+    public function loadConfig($buildPath = NULL)
+    {
         $build_config = null;
 
         // Try getting the project build config from the database:
@@ -105,27 +121,35 @@ class Build extends BuildBase
         }
 
         // Try .phpci.yml
-        if (is_file($buildPath . '/.phpci.yml')) {
+        if ($buildPath && is_file($buildPath . '/.phpci.yml')) {
             $build_config = file_get_contents($buildPath . '/.phpci.yml');
         }
 
         // Try phpci.yml first:
-        if (empty($build_config) && is_file($buildPath . '/phpci.yml')) {
+        if (empty($build_config) && $buildPath && is_file($buildPath . '/phpci.yml')) {
             $build_config = file_get_contents($buildPath . '/phpci.yml');
-        }
-
-        // Fall back to zero config plugins:
-        if (empty($build_config)) {
-            $build_config = $this->getZeroConfigPlugins($builder);
         }
 
         if (is_string($build_config)) {
             $yamlParser = new YamlParser();
-            $build_config = $yamlParser->parse($build_config);
+            return $yamlParser->parse($build_config);
         }
 
-        $builder->setConfigArray($build_config);
-        return true;
+        return NULL;
+    }
+
+    public function getConfig($buildPath = NULL) {
+        if ($this->buildConfig === NULL) {
+            $this->setConfig($this->loadConfig($buildPath ?: $this->getBuildPath()));
+        }
+
+        return $this->buildConfig;
+    }
+
+    public function setConfig(array $buildConfig) {
+        $this->buildConfig = $buildConfig;
+
+        return $this;
     }
 
     /**

@@ -5,6 +5,8 @@ namespace PHPCI\Worker;
 use Monolog\Logger;
 use Pheanstalk\Job;
 use Pheanstalk\Pheanstalk;
+use PHPCI\Exceptions\BuildAlreadyRan;
+use PHPCI\Helper\BaseCommandExecutor;
 use PHPCI\Helper\CommandExecutor;
 use PHPCI\Helper\JobData;
 use PHPCI\Logging\BuildLogger;
@@ -57,7 +59,7 @@ class BuildWorker
      */
     protected $totalJobs = 0;
 
-    /** @var \PHPCI\Helper\CommandExecutor */
+    /** @var \PHPCI\Helper\BaseCommandExecutor */
     private $commandExecutor = NULL;
 
     /**
@@ -102,6 +104,8 @@ class BuildWorker
 
             $this->checkJobLimit();
 
+            $deleteJob = true;
+
             try {
                 $runMethod = 'Local';
                 if ($this->canRunChild($job)) {
@@ -112,15 +116,19 @@ class BuildWorker
                 // If we've caught a PDO Exception, it is probably not the fault of the build, but of a failed
                 // connection or similar. Release the job and kill the worker.
                 $this->run = false;
+                $deleteJob = false;
+
                 $this->pheanstalk->release($job);
             } catch (\InvalidArgumentException $ex) {
-                //Likely Due To
-                $this->pheanstalk->delete($job);
-                continue;
+                //Meh
+            } catch (BuildAlreadyRan $ex) {
+                //Meh
             }
 
             // Delete the job when we're done:
-            $this->pheanstalk->delete($job);
+            if ($deleteJob) {
+                $this->pheanstalk->delete($job);
+            }
         }
     }
 
@@ -136,19 +144,47 @@ class BuildWorker
 
         $this->logger->addInfo('Starting Child Build');
 
+        $buildCommand   = APPLICATION_PATH . 'console phpci:build --buildConfig="%s" %d';
+        $buildArguments = [
+            addslashes(\json_encode($jobData->toArray())),
+            $jobData->getBuildId()
+        ];
+
+        $jobConfig = $jobData->getBuild()->getConfig();
+        if (isset($jobConfig['child']['environment'])) {
+            foreach($jobConfig['child']['environment'] as $envVar => $envValue) {
+                $buildCommand = $envValue . '="%s" ' . $buildCommand;
+                array_unshift($buildArguments, $envValue);
+            }
+        }
+
+        array_unshift($buildArguments, $buildCommand);
+
         /** @noinspection PhpMethodParametersCountMismatchInspection */
-        $this->getCommandExecutor($jobData->getBuild())->executeCommand(
-            [
-                APPLICATION_PATH . 'console phpci:build --buildConfig="%s" %d',
-                addslashes(\json_encode($jobData->toArray())),
-                $jobData->getBuildId()
-            ]
+        $returnStatus = $this->getCommandExecutor($jobData->getBuild())->executeCommand(
+            $buildArguments
         );
 
         $this->logger->addInfo('Child Build Complete');
+
+        if ($returnStatus !== 0) {
+            throw $this->buildReturnException($returnStatus);
+        }
     }
 
-    public function getCommandExecutor(Build $buildData)
+    protected function buildReturnException($returnStatus)
+    {
+        $exceptionName = 'Exception';
+        switch($returnStatus) {
+            case 255: //TODO: Huh?
+                $exceptionName = '\PHPCI\Exceptions\BuildAlreadyRan';
+                break;
+        }
+
+        return new $exceptionName($this->getCommandExecutor()->getLastError(), $returnStatus);
+    }
+
+    public function getCommandExecutor(Build $buildData = NULL)
     {
         if ($this->commandExecutor === NULL) {
             $className = 'UnixCommandExecutor';
@@ -158,7 +194,11 @@ class BuildWorker
 
             $className = '\PHPCI\Helper\\' . $className;
 
-            $this->setCommandExecutor(new $className(new BuildLogger($this->logger, $buildData), APPLICATION_PATH));
+            /** @var BaseCommandExecutor $commandExecutor */
+            $commandExecutor = new $className(new BuildLogger($this->logger, $buildData), APPLICATION_PATH);
+            $commandExecutor->setReturnStatus(TRUE);
+
+            $this->setCommandExecutor($commandExecutor);
         }
 
         return $this->commandExecutor;
